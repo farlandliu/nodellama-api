@@ -1,24 +1,82 @@
-## node llama  api
+# llmapi
 
-use node-llama-cpp serve the embedding and reranker openai-api compitable api.
+Standalone embedding API server using `node-llama-cpp`. Provides OpenAI-compatible embedding endpoints with minimal model management.
 
-- embedding models: embeddinggemma, qwen3-embeding-0.6b
-  - Qwen/Qwen3-Embedding-0.6B-GGUF/Qwen3-Embedding-0.6B-Q8_0.gguf
-  - 
-- reranker model: 
-  - ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/qwen3-reranker-0.6b-q8_0.gguf
+## Quick Start
 
+```bash
+# Install a model
+pnpm cli -- install https://huggingface.co/ggml-org/embeddinggemma-300M-GGUF/resolve/main/embeddinggemma-300M-Q8_0.gguf
 
-```ts
-// HuggingFace model URIs for node-llama-cpp
-// Format: hf:<user>/<repo>/<file>
-const DEFAULT_EMBED_MODEL = "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf";
-const DEFAULT_RERANK_MODEL = "hf:ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/qwen3-reranker-0.6b-q8_0.gguf";
-// const DEFAULT_GENERATE_MODEL = "hf:ggml-org/Qwen3-0.6B-GGUF/Qwen3-0.6B-Q8_0.gguf";
-const DEFAULT_GENERATE_MODEL = "hf:tobil/qmd-query-expansion-1.7B-gguf/qmd-query-expansion-1.7B-q4_k_m.gguf";
+# Start server
+pnpm start
 
-// Alternative generation models for query expansion:
-// LiquidAI LFM2 - hybrid architecture optimized for edge/on-device inference
-// Use these as base for fine-tuning with configs/sft_lfm2.yaml
-export const LFM2_GENERATE_MODEL = "hf:LiquidAI/LFM2-1.2B-GGUF/LFM2-1.2B-Q4_K_M.gguf";
+# Or via CLI
+pnpm cli -- serve --port 3000
 ```
+
+## CLI
+
+```
+Usage: llmapi [options] [command]
+
+Commands:
+  install <url>   Download and register a GGUF model
+  list            List installed models
+  serve           Start the embedding API server
+  help            Display help
+```
+
+## API
+
+### `POST /v1/embeddings`
+
+OpenAI-compatible embedding endpoint.
+
+```json
+{
+  "input": "text to embed",
+  "model": "optional-model-name"
+}
+```
+
+Response:
+
+```json
+{
+  "object": "list",
+  "data": [
+    { "object": "embedding", "index": 0, "embedding": [0.1, -0.2, ...] }
+  ],
+  "usage": { "prompt_tokens": 10, "total_tokens": 10 }
+}
+```
+
+### `GET /v1/models`
+
+List installed models.
+
+### `POST /v1/models/install`
+
+Download and register a GGUF model.
+
+```json
+{ "url": "https://huggingface.co/.../model.gguf", "name": "my-model" }
+```
+
+### `DELETE /v1/models/:name`
+
+Remove a model.
+
+### `GET /health`
+
+Health check.
+
+## Configuration
+
+| Env | Default | Description |
+|-----|---------|-------------|
+| `LLMAPI_PORT` | `3000` | Server port |
+| `LLMAPI_DIR` | `~/.llmapi` | Data directory (models stored in `models/` subdir) |
+
+Model registry stored in `models.json` at project root.
