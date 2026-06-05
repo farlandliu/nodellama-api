@@ -95,3 +95,68 @@ console.log(`Total text length: ${response.length}`);
 catai.close();
 
 ```
+
+## OpenAI-compatible API
+
+Catai also exposes OpenAI-compatible REST endpoints under both `/v1` and `/api/v1`, so OpenAI SDKs can point their `baseURL` at your Catai server.
+
+### List models
+
+```bash
+curl http://127.0.0.1:3000/v1/models
+```
+
+### Chat completions
+
+```bash
+curl http://127.0.0.1:3000/v1/chat/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "llama3",
+    "messages": [{"role": "user", "content": "Write a short story"}],
+    "stream": false
+  }'
+```
+
+Set `stream` to `true` to receive Server-Sent Events compatible with OpenAI streaming chat completions.
+
+### Text completions
+
+```bash
+curl http://127.0.0.1:3000/v1/completions \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "llama3",
+    "prompt": "Once upon a time",
+    "stream": false
+  }'
+```
+
+### Embeddings
+
+Use an embedding-capable GGUF model and send either a single string or an array of strings.
+
+```bash
+curl http://127.0.0.1:3000/v1/embeddings \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "nomic-embed-text",
+    "input": ["first document", "second document"]
+  }'
+```
+
+### Reranking
+
+Use a reranking-capable GGUF model to score documents against a query. Results are returned from highest to lowest score, and `top_n` can limit the response size.
+
+```bash
+curl http://127.0.0.1:3000/v1/rerank \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "model": "bge-reranker",
+    "query": "local LLM API",
+    "documents": ["OpenAI-compatible APIs", "Unrelated text"],
+    "top_n": 2,
+    "return_documents": true
+  }'
+```

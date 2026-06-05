@@ -6,12 +6,14 @@ import {
     LlamaChatSession,
     LlamaChatSessionOptions,
     LlamaContextOptions,
+    LlamaEmbeddingContextOptions,
     LlamaModel,
     LlamaModelOptions,
-    LlamaOptions
+    LlamaOptions,
+    LlamaRankingContextOptions
 } from 'node-llama-cpp';
 import NodeLlamaCppChat from './node-llama-cpp-chat.js';
-import BaseBindClass from '../../base-bind-class.js';
+import BaseBindClass, {EmbeddingOptions, RerankResult} from '../../base-bind-class.js';
 import objectAssignDeep from 'object-assign-deep';
 import fsExtra from 'fs-extra';
 import {ModelNotInstalledError} from '../../../errors/ModelNotInstalledError.js';
@@ -73,6 +75,44 @@ export default class NodeLlamaCppV2 extends BaseBindClass<NodeLlamaCppOptions> {
         return new NodeLlamaCppChat(settings, session);
     }
 
+
+    async createEmbedding(input: string[], overrideSettings?: EmbeddingOptions): Promise<number[][]> {
+        if (!this._model)
+            throw new Error('Model not initialized');
+
+        const settings = objectAssignDeep({}, this.modelSettings.settings, overrideSettings);
+        const context = await this._model.createEmbeddingContext(this._getEmbeddingContextOptions(settings));
+
+        try {
+            const embeddings = await Promise.all(input.map(async item => {
+                const embedding = await context.getEmbeddingFor(item);
+                return [...embedding.vector];
+            }));
+
+            return embeddings;
+        } finally {
+            await context.dispose();
+        }
+    }
+
+    async rerank(query: string, documents: string[], overrideSettings?: EmbeddingOptions): Promise<RerankResult[]> {
+        if (!this._model)
+            throw new Error('Model not initialized');
+
+        const settings = objectAssignDeep({}, this.modelSettings.settings, overrideSettings);
+        const context = await this._model.createRankingContext(this._getRankingContextOptions(settings));
+
+        try {
+            const scores = await context.rankAll(query, documents);
+            return scores.map((score, index) => ({
+                index,
+                relevance_score: score,
+            }));
+        } finally {
+            await context.dispose();
+        }
+    }
+
     async initialize(): Promise<void> {
         if (!await fsExtra.pathExists(this.modelSettings.downloadedFiles.model)) {
             throw new ModelNotInstalledError(`Model ${this.modelSettings.downloadedFiles.model} does not exist locally - run "sync" to cleanup none exiting models`);
@@ -83,6 +123,31 @@ export default class NodeLlamaCppV2 extends BaseBindClass<NodeLlamaCppOptions> {
             modelPath: this.modelSettings.downloadedFiles.model,
             ...this.modelSettings.settings
         });
+    }
+
+
+    private _getEmbeddingContextOptions(settings?: Partial<NodeLlamaCppOptions>): LlamaEmbeddingContextOptions {
+        const {contextSize, batchSize, threads, createSignal, ignoreMemorySafetyChecks} = settings ?? {};
+
+        return {
+            contextSize,
+            batchSize,
+            threads: typeof threads === 'number' ? threads : undefined,
+            createSignal,
+            ignoreMemorySafetyChecks,
+        };
+    }
+
+    private _getRankingContextOptions(settings?: Partial<NodeLlamaCppOptions>): LlamaRankingContextOptions {
+        const {contextSize, batchSize, threads, createSignal, ignoreMemorySafetyChecks} = settings ?? {};
+
+        return {
+            contextSize,
+            batchSize,
+            threads: typeof threads === 'number' ? threads : undefined,
+            createSignal,
+            ignoreMemorySafetyChecks,
+        };
     }
 
     private _flagsToSettings(settings: NodeLlamaCppOptions) {

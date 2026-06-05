@@ -8,6 +8,7 @@ import openServer from './utils/open-server.js';
 import {WebSocketServer} from 'ws';
 import http from 'http';
 import {connectWS} from './api/routes/chat.js';
+import {openAIRouter} from './api/routes/openai.js';
 
 
 const app = new App();
@@ -19,6 +20,7 @@ app.use(cors({origin: '*'}));
 app.use(sirv(getStaticClientDirectory()));
 app.use(bodyParser.json());
 app.use('/api', apiRouter);
+app.use('/v1', openAIRouter as any);
 ws.on('connection', connectWS);
 
 await openServer(server);
