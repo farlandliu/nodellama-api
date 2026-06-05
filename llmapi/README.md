@@ -1,89 +1,127 @@
 # llmapi
 
-Standalone embedding API server using `node-llama-cpp`. Provides OpenAI-compatible embedding endpoints with minimal model management.
+Standalone embedding API using node-llama-cpp
 
-## Quick Start
+## Features
+
+- Embedding generation using Llama models
+- Reranking functionality
+- Model management (install, list)
+- JWT token authentication
+
+## Authentication
+
+All API endpoints (except `/health` and `/token`) require a valid JWT token in the Authorization header:
+
+```
+Authorization: Bearer <token>
+```
+
+### Getting a token
+
+You can obtain a token using the CLI:
 
 ```bash
-# Install default embedding model
-pnpm cli -- install --default
-
-# Install from Hugging Face
-pnpm cli -- install hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf
-
-# Install from URL
-pnpm cli -- install https://example.com/model.gguf
-
-# Start server
-pnpm start
-
-# Or via CLI
-pnpm cli -- serve --port 3000
+pnpm run cli token
 ```
 
-## CLI
+Or make a GET request to the `/token` endpoint:
 
-```
-Usage: llmapi [options] [command]
-
-Commands:
-  install [uri]   Download and register a GGUF model
-  list            List installed models
-  serve           Start the embedding API server
-  help            Display help
-
-Options (install):
-  -n, --name <name>  Name for the model
-  --default          Install default embed + reranker models
+```bash
+curl http://localhost:3000/token
 ```
 
-## API
+### Production Security
 
-### `POST /v1/embeddings`
+In production, the `/token` endpoint requires initial authentication for security. You must provide an initial password:
 
-OpenAI-compatible embedding endpoint.
-
-```json
-{
-  "input": "text to embed",
-  "model": "optional-model-name"
-}
+```bash
+curl -H "x-initial-password: your-initial-password" http://localhost:3000/token
 ```
 
-Response:
+Set the `INITIAL_PASSWORD` environment variable to configure the initial authentication password:
 
-```json
-{
-  "object": "list",
-  "data": [
-    { "object": "embedding", "index": 0, "embedding": [0.1, -0.2, ...] }
-  ],
-  "usage": { "prompt_tokens": 10, "total_tokens": 10 }
-}
+```bash
+export INITIAL_PASSWORD="your-secure-initial-password"
 ```
 
-### `GET /v1/models`
+### Token generation
 
-List installed models.
+Tokens are valid for 90 days and are generated using a secret key. For development, a default key is used, but in production, set the `JWT_SECRET` environment variable to a secure value:
 
-### `POST /v1/models/install`
-
-Download and register a GGUF model (supports `hf:` URIs and HTTP URLs).
-
-```json
-{ "uri": "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf", "name": "my-model" }
+```bash
+export JWT_SECRET="your-very-secure-random-secret-here-32-characters-minimum"
 ```
 
-### `GET /health`
+To generate a secure secret:
+```bash
+# Using openssl
+openssl rand -base64 32
 
-Health check.
+# Using Node.js
+node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"
 
-## Configuration
+# Using Python
+python3 -c "import secrets; print(secrets.token_urlsafe(32))"
+```
 
-| Env | Default | Description |
-|-----|---------|-------------|
-| `LLMAPI_PORT` | `3000` | Server port |
-| `LLMAPI_DIR` | `~/.llmapi` | Data directory |
-| `MODEL_PATH` | `./models` | Model files download directory |
+## API Endpoints
 
-Model registry stored in `models.json` at project root.
+### Health Check
+- `GET /health` - Check if the service is running
+
+### Token
+- `GET /token` - Generate a new JWT token
+
+### Embeddings
+- `POST /v1/embeddings` - Generate embeddings for text input
+
+### Models
+- `GET /v1/models` - List installed models
+- `POST /v1/models/install` - Install a new model
+
+### Reranking
+- `POST /v1/rerank` - Re-rank documents based on a query
+
+## Environment Variables
+
+- `LLMAPI_PORT` - Port to listen on (default: 3000)
+- `LLMAPI_DIR` - Directory for storing data (default: ~/.llmapi)
+- `MODEL_PATH` - Directory for storing models (default: ./models)
+- `JWT_SECRET` - Secret key for JWT tokens (default: llmapi-default-secret-key)
+
+## Development
+
+### Install dependencies
+```bash
+pnpm install
+```
+
+### Build
+```bash
+pnpm run build
+```
+
+### Run in development mode
+```bash
+pnpm run dev
+```
+
+### Start server
+```bash
+pnpm run start
+```
+
+### Run tests
+```bash
+pnpm run api-test
+```
+
+### CLI commands
+```bash
+pnpm run cli --help
+```
+
+## License
+
+ISC

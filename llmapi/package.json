@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Standalone embedding API using node-llama-cpp",
   "main": "dist/index.js",
+  "readme": "README.md",
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
@@ -10,6 +11,8 @@
     "cli": "node dist/cli.js",
     "sample": "node dist/sample.js",
     "sample2": "node dist/sample2.js",
+    "rerank-en": "node dist/rerank-test-en.js",
+    "rerank-cn": "node dist/rerank-test-cn.js",
     "api-test": "node dist/api-test.js"
   },
   "keywords": [],
@@ -24,14 +27,18 @@
   },
   "type": "module",
   "devDependencies": {
+    "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.9.1",
     "typescript": "^5.7.0"
   },
   "dependencies": {
     "chalk": "^5.6.2",
     "commander": "^15.0.0",
+    "cors": "^2.8.6",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "node-llama-cpp": "^3.18.1",
     "prompts": "^2.4.2",
     "uuid": "^14.0.0"

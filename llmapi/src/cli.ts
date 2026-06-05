@@ -6,6 +6,7 @@ import {createModelDownloader, combineModelDownloaders} from 'node-llama-cpp';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
+import {generateToken} from './auth.js';
 
 const DEFAULT_EMBED_MODEL = 'hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf';
 const DEFAULT_RERANK_MODEL = 'hf:ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/qwen3-reranker-0.6b-q8_0.gguf';
@@ -120,20 +121,34 @@ program
     }
     const {config: cfg} = await import('./config.js');
     const {default: express} = await import('express');
+    const {default: cors} = await import('cors');
     const {embeddingRouter} = await import('./routes/embeddings.js');
     const {modelRouter} = await import('./routes/models.js');
+    const {authenticateToken} = await import('./auth.js');
 
     await load();
     await getOrInitLlama();
 
     const app = express();
+    app.use(cors());
     app.use(express.json());
+
+    // Apply authentication to API routes
+    app.use('/v1', authenticateToken);
     app.use('/v1', embeddingRouter);
     app.use('/v1', modelRouter);
 
-    app.listen(cfg.port, () => {
-      console.log(`llmapi listening on http://localhost:${cfg.port}`);
+    app.listen(cfg.port, '0.0.0.0', () => {
+      console.log(`llmapi listening on http://0.0.0.0:${cfg.port}`);
     });
+  });
+
+program
+  .command('token')
+  .description('Generate a JWT token for API access')
+  .action(() => {
+    const token = generateToken();
+    console.log(token);
   });
 
 program.parse(process.argv);
