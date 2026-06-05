@@ -34,7 +34,7 @@ Commands:
 
 Options (install):
   -n, --name <name>  Name for the model
-  --default          Install default embedding model
+  --default          Install default embed + reranker models
 ```
 
 ## API

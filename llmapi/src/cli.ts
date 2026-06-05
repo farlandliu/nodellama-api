@@ -2,12 +2,13 @@ import {Command} from 'commander';
 import {load, registerModel} from './storage.js';
 import {getOrInitLlama} from './llama-service.js';
 import {config} from './config.js';
-import {createModelDownloader} from 'node-llama-cpp';
+import {createModelDownloader, combineModelDownloaders} from 'node-llama-cpp';
 import path from 'node:path';
 import fs from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 
 const DEFAULT_EMBED_MODEL = 'hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf';
+const DEFAULT_RERANK_MODEL = 'hf:ggml-org/Qwen3-Reranker-0.6B-Q8_0-GGUF/qwen3-reranker-0.6b-q8_0.gguf';
 
 const program = new Command();
 
@@ -21,42 +22,77 @@ program
   .description('Download and register a GGUF model')
   .argument('[uri]', 'Model URI (URL or hf:user/repo/file)')
   .option('-n, --name <name>', 'Name for the model')
-  .option('--default', 'Install default embedding model')
+  .option('--default', 'Install default embedding and reranker models')
   .action(async (uri: string | undefined, options: { name?: string; default?: boolean }) => {
     const useDefault = options.default || uri === '--default';
-    const modelUri = (uri && !uri.startsWith('--')) ? uri : (useDefault ? DEFAULT_EMBED_MODEL : null);
-    if (!modelUri) {
+    const modelUri = (uri && !uri.startsWith('--')) ? uri : null;
+
+    if (!modelUri && !useDefault) {
       console.error('Provide a model URI or use --default');
       process.exit(1);
     }
 
     const modelsDir = path.resolve(config.modelPath);
     await fs.mkdir(modelsDir, { recursive: true });
-
     await load();
 
-    const name = options.name ?? modelUri.split('/').pop()?.replace(/[^a-zA-Z0-9._-]/g, '') ?? 'model';
-    const targetPath = path.join(modelsDir, name);
-
-    if (existsSync(targetPath)) {
-      console.log(`Model file exists at ${targetPath}, skipping download.`);
-      await registerModel(name, targetPath);
-      console.log(`Model '${name}' is ready.`);
+    if (useDefault) {
+      await installDefaultModels(modelsDir);
       return;
     }
 
+    await installSingleModel(modelUri!, modelsDir, options.name);
+  });
+
+async function installDefaultModels(modelsDir: string) {
+  for (const [modelUri, label] of [
+    [DEFAULT_EMBED_MODEL, 'embed'] as const,
+    [DEFAULT_RERANK_MODEL, 'reranker'] as const,
+  ]) {
+    const name = modelUri.split('/').pop()?.replace(/[^a-zA-Z0-9._-]/g, '') ?? label;
+    const targetPath = path.join(modelsDir, name);
+
+    if (existsSync(targetPath)) {
+      console.log(`Default ${label} model exists at ${targetPath}, skipping.`);
+      await registerModel(name, targetPath);
+      continue;
+    }
+
+    console.log(`Downloading default ${label} model...`);
     const downloader = await createModelDownloader({
       modelUri,
       dirPath: modelsDir,
       showCliProgress: true,
     });
-
     const modelPath = await downloader.download();
-    const resolvedName = options.name ?? path.basename(modelPath).replace(/[^a-zA-Z0-9._-]/g, '');
-
+    const resolvedName = path.basename(modelPath).replace(/[^a-zA-Z0-9._-]/g, '');
     await registerModel(resolvedName, modelPath);
-    console.log(`\nModel '${resolvedName}' installed at ${modelPath}`);
+    console.log(`\nDefault ${label} model installed at ${modelPath}`);
+  }
+}
+
+async function installSingleModel(modelUri: string, modelsDir: string, name?: string) {
+  const fileName = name ?? modelUri.split('/').pop()?.replace(/[^a-zA-Z0-9._-]/g, '') ?? 'model';
+  const targetPath = path.join(modelsDir, fileName);
+
+  if (existsSync(targetPath)) {
+    console.log(`Model file exists at ${targetPath}, skipping download.`);
+    await registerModel(fileName, targetPath);
+    console.log(`Model '${fileName}' is ready.`);
+    return;
+  }
+
+  const downloader = await createModelDownloader({
+    modelUri,
+    dirPath: modelsDir,
+    showCliProgress: true,
   });
+
+  const modelPath = await downloader.download();
+  const resolvedName = name ?? path.basename(modelPath).replace(/[^a-zA-Z0-9._-]/g, '');
+  await registerModel(resolvedName, modelPath);
+  console.log(`\nModel '${resolvedName}' installed at ${modelPath}`);
+}
 
 program
   .command('list')
