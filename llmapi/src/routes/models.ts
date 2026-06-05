@@ -1,5 +1,5 @@
 import {Router, type Request, type Response} from 'express';
-import {load, registerModel, removeModel} from '../storage.js';
+import {load, registerModel} from '../storage.js';
 import {config} from '../config.js';
 import path from 'node:path';
 import fs from 'node:fs/promises';
@@ -86,25 +86,3 @@ modelRouter.post('/models/install', async (req: Request, res: Response) => {
   }
 });
 
-modelRouter.delete('/models/:name', async (req: Request, res: Response) => {
-  const name = req.params.name as string;
-  const db = await load();
-  const entry = db.models[name];
-
-  if (!entry) {
-    res.status(404).json({
-      error: { message: `Model '${name}' not found`, type: 'not_found', code: null, param: 'name' },
-    });
-    return;
-  }
-
-  await removeModel(name);
-
-  try {
-    await fs.unlink(entry.downloadedFiles.model);
-  } catch {
-    // file may already be deleted
-  }
-
-  res.json({ object: 'model', id: name, status: 'removed' });
-});
