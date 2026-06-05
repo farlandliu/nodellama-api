@@ -5,6 +5,7 @@ import {config} from './config.js';
 import {createModelDownloader} from 'node-llama-cpp';
 import path from 'node:path';
 import fs from 'node:fs/promises';
+import {existsSync} from 'node:fs';
 
 const DEFAULT_EMBED_MODEL = 'hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf';
 
@@ -22,16 +23,28 @@ program
   .option('-n, --name <name>', 'Name for the model')
   .option('--default', 'Install default embedding model')
   .action(async (uri: string | undefined, options: { name?: string; default?: boolean }) => {
-    const modelUri = uri ?? (options.default ? DEFAULT_EMBED_MODEL : null);
+    const useDefault = options.default || uri === '--default';
+    const modelUri = (uri && !uri.startsWith('--')) ? uri : (useDefault ? DEFAULT_EMBED_MODEL : null);
     if (!modelUri) {
       console.error('Provide a model URI or use --default');
       process.exit(1);
     }
 
-    const modelsDir = path.join(config.dir, 'models');
+    const modelsDir = path.resolve(config.modelPath);
     await fs.mkdir(modelsDir, { recursive: true });
 
-    console.log(`Downloading ${modelUri}...`);
+    await load();
+
+    const name = options.name ?? modelUri.split('/').pop()?.replace(/[^a-zA-Z0-9._-]/g, '') ?? 'model';
+    const targetPath = path.join(modelsDir, name);
+
+    if (existsSync(targetPath)) {
+      console.log(`Model file exists at ${targetPath}, skipping download.`);
+      await registerModel(name, targetPath);
+      console.log(`Model '${name}' is ready.`);
+      return;
+    }
+
     const downloader = await createModelDownloader({
       modelUri,
       dirPath: modelsDir,
@@ -39,11 +52,10 @@ program
     });
 
     const modelPath = await downloader.download();
-    const name = options.name ?? path.basename(modelPath).replace(/[^a-zA-Z0-9._-]/g, '');
+    const resolvedName = options.name ?? path.basename(modelPath).replace(/[^a-zA-Z0-9._-]/g, '');
 
-    await load();
-    await registerModel(name, modelPath);
-    console.log(`\nModel '${name}' installed at ${modelPath}`);
+    await registerModel(resolvedName, modelPath);
+    console.log(`\nModel '${resolvedName}' installed at ${modelPath}`);
   });
 
 program

@@ -83,6 +83,7 @@ Health check.
 | Env | Default | Description |
 |-----|---------|-------------|
 | `LLMAPI_PORT` | `3000` | Server port |
-| `LLMAPI_DIR` | `~/.llmapi` | Data directory (models stored in `models/` subdir) |
+| `LLMAPI_DIR` | `~/.llmapi` | Data directory |
+| `MODEL_PATH` | `./models` | Model files download directory |
 
 Model registry stored in `models.json` at project root.
