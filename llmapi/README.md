@@ -5,8 +5,14 @@ Standalone embedding API server using `node-llama-cpp`. Provides OpenAI-compatib
 ## Quick Start
 
 ```bash
-# Install a model
-pnpm cli -- install https://huggingface.co/ggml-org/embeddinggemma-300M-GGUF/resolve/main/embeddinggemma-300M-Q8_0.gguf
+# Install default embedding model
+pnpm cli -- install --default
+
+# Install from Hugging Face
+pnpm cli -- install hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf
+
+# Install from URL
+pnpm cli -- install https://example.com/model.gguf
 
 # Start server
 pnpm start
@@ -21,10 +27,14 @@ pnpm cli -- serve --port 3000
 Usage: llmapi [options] [command]
 
 Commands:
-  install <url>   Download and register a GGUF model
+  install [uri]   Download and register a GGUF model
   list            List installed models
   serve           Start the embedding API server
   help            Display help
+
+Options (install):
+  -n, --name <name>  Name for the model
+  --default          Install default embedding model
 ```
 
 ## API
@@ -58,15 +68,11 @@ List installed models.
 
 ### `POST /v1/models/install`
 
-Download and register a GGUF model.
+Download and register a GGUF model (supports `hf:` URIs and HTTP URLs).
 
 ```json
-{ "url": "https://huggingface.co/.../model.gguf", "name": "my-model" }
+{ "uri": "hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf", "name": "my-model" }
 ```
-
-### `DELETE /v1/models/:name`
-
-Remove a model.
 
 ### `GET /health`
 

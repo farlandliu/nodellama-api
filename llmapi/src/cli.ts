@@ -2,9 +2,11 @@ import {Command} from 'commander';
 import {load, registerModel} from './storage.js';
 import {getOrInitLlama} from './llama-service.js';
 import {config} from './config.js';
+import {createModelDownloader} from 'node-llama-cpp';
 import path from 'node:path';
 import fs from 'node:fs/promises';
-import {createWriteStream} from 'node:fs';
+
+const DEFAULT_EMBED_MODEL = 'hf:ggml-org/embeddinggemma-300M-GGUF/embeddinggemma-300M-Q8_0.gguf';
 
 const program = new Command();
 
@@ -16,45 +18,32 @@ program
 program
   .command('install')
   .description('Download and register a GGUF model')
-  .argument('<url>', 'URL or path to GGUF model file')
+  .argument('[uri]', 'Model URI (URL or hf:user/repo/file)')
   .option('-n, --name <name>', 'Name for the model')
-  .action(async (url: string, options: { name?: string }) => {
-    const rawName = options.name ?? url.split('/').pop()?.split(/[?#]/).shift() ?? 'model';
-    const name = path.basename(rawName).replace(/[^a-zA-Z0-9._-]/g, '');
-    const modelsDir = path.join(config.dir, 'models');
-
-    await fs.mkdir(modelsDir, { recursive: true });
-
-    const savePath = path.join(modelsDir, name);
-    console.log(`Downloading ${url}...`);
-
-    const response = await fetch(url);
-    if (!response.ok || !response.body) {
-      console.error(`Failed to fetch ${url}: ${response.status}`);
+  .option('--default', 'Install default embedding model')
+  .action(async (uri: string | undefined, options: { name?: string; default?: boolean }) => {
+    const modelUri = uri ?? (options.default ? DEFAULT_EMBED_MODEL : null);
+    if (!modelUri) {
+      console.error('Provide a model URI or use --default');
       process.exit(1);
     }
 
-    const writer = createWriteStream(savePath);
-    const reader = response.body.getReader();
+    const modelsDir = path.join(config.dir, 'models');
+    await fs.mkdir(modelsDir, { recursive: true });
 
-    const pump = async () => {
-      while (true) {
-        const {done, value} = await reader.read();
-        if (done) break;
-        writer.write(value);
-      }
-    };
-
-    await pump();
-    await new Promise<void>((resolve, reject) => {
-      writer.on('finish', resolve);
-      writer.on('error', reject);
-      writer.end();
+    console.log(`Downloading ${modelUri}...`);
+    const downloader = await createModelDownloader({
+      modelUri,
+      dirPath: modelsDir,
+      showCliProgress: true,
     });
 
+    const modelPath = await downloader.download();
+    const name = options.name ?? path.basename(modelPath).replace(/[^a-zA-Z0-9._-]/g, '');
+
     await load();
-    await registerModel(name, savePath);
-    console.log(`Model '${name}' installed at ${savePath}`);
+    await registerModel(name, modelPath);
+    console.log(`\nModel '${name}' installed at ${modelPath}`);
   });
 
 program
