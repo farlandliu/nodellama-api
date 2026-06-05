@@ -37,7 +37,15 @@ modelRouter.post('/models/install', async (req: Request, res: Response) => {
     return;
   }
 
-  const name = body.name ?? body.url.split('/').pop()?.split(/[?#]/).shift() ?? 'model';
+  const rawName = body.name ?? body.url.split('/').pop()?.split(/[?#]/).shift() ?? 'model';
+  const name = path.basename(rawName).replace(/[^a-zA-Z0-9._-]/g, '');
+  if (!name) {
+    res.status(400).json({
+      error: { message: 'Invalid model name', type: 'invalid_request_error', code: null, param: 'name' },
+    });
+    return;
+  }
+
   const modelsDir = path.join(config.dir, 'models');
 
   try {
@@ -80,13 +88,22 @@ modelRouter.post('/models/install', async (req: Request, res: Response) => {
 
 modelRouter.delete('/models/:name', async (req: Request, res: Response) => {
   const name = req.params.name as string;
-  const removed = await removeModel(name);
+  const db = await load();
+  const entry = db.models[name];
 
-  if (!removed) {
+  if (!entry) {
     res.status(404).json({
       error: { message: `Model '${name}' not found`, type: 'not_found', code: null, param: 'name' },
     });
     return;
+  }
+
+  await removeModel(name);
+
+  try {
+    await fs.unlink(entry.downloadedFiles.model);
+  } catch {
+    // file may already be deleted
   }
 
   res.json({ object: 'model', id: name, status: 'removed' });

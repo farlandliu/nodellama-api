@@ -55,7 +55,7 @@ embeddingRouter.post('/embeddings', async (req: Request, res: Response) => {
       })),
       usage: {
         prompt_tokens: inputs.reduce((sum, item) => sum + usage(item).promptTokens, 0),
-        total_tokens: inputs.reduce((sum, item) => sum + usage(item).promptTokens, 0),
+        total_tokens: inputs.reduce((sum, item) => sum + usage(item).totalTokens, 0),
       },
     });
   } catch (error) {

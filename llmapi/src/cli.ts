@@ -19,7 +19,8 @@ program
   .argument('<url>', 'URL or path to GGUF model file')
   .option('-n, --name <name>', 'Name for the model')
   .action(async (url: string, options: { name?: string }) => {
-    const name = options.name ?? url.split('/').pop()?.split(/[?#]/).shift() ?? 'model';
+    const rawName = options.name ?? url.split('/').pop()?.split(/[?#]/).shift() ?? 'model';
+    const name = path.basename(rawName).replace(/[^a-zA-Z0-9._-]/g, '');
     const modelsDir = path.join(config.dir, 'models');
 
     await fs.mkdir(modelsDir, { recursive: true });
