@@ -9,7 +9,8 @@
     "dev": "tsc --watch",
     "cli": "node dist/cli.js",
     "sample": "node dist/sample.js",
-    "sample2": "node dist/sample2.js"
+    "sample2": "node dist/sample2.js",
+    "api-test": "node dist/api-test.js"
   },
   "keywords": [],
   "author": "",
