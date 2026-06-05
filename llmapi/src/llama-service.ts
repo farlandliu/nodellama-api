@@ -3,6 +3,7 @@ import {
   Llama,
   LlamaModel,
   type LlamaEmbeddingContextOptions,
+  type LlamaRankingContextOptions,
 } from 'node-llama-cpp';
 
 let cachedLlama: Llama | null = null;
@@ -39,6 +40,28 @@ export async function createEmbedding(
         return [...embedding.vector];
       }),
     );
+  } finally {
+    await context.dispose();
+  }
+}
+
+export type RerankResult = {
+  index: number;
+  relevance_score: number;
+};
+
+export async function rerank(
+  query: string,
+  documents: string[],
+  modelPath: string,
+  options?: LlamaRankingContextOptions,
+): Promise<RerankResult[]> {
+  const model = await loadModel(modelPath);
+  const context = await model.createRankingContext(options ?? {});
+
+  try {
+    const scores = await context.rankAll(query, documents);
+    return scores.map((score, index) => ({ index, relevance_score: score }));
   } finally {
     await context.dispose();
   }
