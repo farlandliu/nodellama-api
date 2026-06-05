@@ -3,7 +3,7 @@ import path from 'node:path';
 
 export type ModelEntry = {
   downloadedFiles: { model: string };
-  settings: Record<string, unknown>;
+  settings: { bind?: string; [key: string]: unknown };
   createDate: number;
 };
 
